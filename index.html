@@ -221,8 +221,18 @@ function generateResults(){
         finalParts.push(q2Other.join(separator+" "));
     }
 
-    if(q3==="Yes" && q3Other.length>0){
-        finalParts.push(q3Other.map(t=>"Part of "+t).join(separator+" "));
+    if(q3==="Yes"){
+    	if(q3Checked.length>0){
+        	finalParts.push(
+            		q3Checked.map(t=>"Part of "+t).join(separator+" ")
+        	);
+    	}
+
+    	if(q3Other.length>0){
+        	finalParts.push(
+            		q3Other.map(t=>"Part of "+t).join(separator+" ")
+        	);
+    	}
     }
 
     document.getElementById("selection1").textContent=selection1;
@@ -257,4 +267,3 @@ function resetForm(){
 </script>
 </body>
 </html>
-
