@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>CertGen: Editing Certificate Decision Tool</title>
+<style>
+body { font-family: Arial; background:#f4f6f8; padding:30px; }
+.container { max-width:950px; margin:auto; background:white; padding:25px; border-radius:8px; box-shadow:0 4px 10px rgba(0,0,0,0.1); }
+h3 { margin-top:25px; }
+.hidden { display:none; }
+.section-group { margin-left:20px; margin-top:10px; }
+.result-box { margin-top:25px; padding:15px; border:2px solid #333; background:#fafafa; }
+button { margin-top:12px; margin-right:10px; padding:7px 12px; cursor:pointer; }
+input[type="text"] { display:block; margin:6px 0; padding:6px; width:300px; }
+</style>
+</head>
+<body>
+
+<div class="container">
+<h2>Editing Certificate Decision Tool</h2>
+
+<h3>Question 1: Excluded sections?</h3>
+<label><input type="radio" name="q1" value="No"> No</label>
+<label><input type="radio" name="q1" value="Yes"> Yes</label>
+
+<div id="q2Block" class="hidden">
+<h3>Question 2: Entire section(s) excluded?</h3>
+<label><input type="radio" name="q2" value="No"> No</label>
+<label><input type="radio" name="q2" value="Yes"> Yes</label>
+<div id="q2Checkboxes" class="hidden section-group"></div>
+</div>
+
+<div id="q3Block" class="hidden">
+<h3>Question 3: Parts of sections excluded?</h3>
+<label><input type="radio" name="q3" value="No"> No</label>
+<label><input type="radio" name="q3" value="Yes"> Yes</label>
+<div id="q3Checkboxes" class="hidden section-group"></div>
+</div>
+
+<br>
+<button type="button" onclick="generateResults()">Generate</button>
+<button type="button" onclick="copyText()">Copy Text</button>
+<button type="button" onclick="resetForm()">Reset</button>
+
+<div class="result-box">
+<h3>Results</h3>
+<p><strong>Selection 1:</strong> <span id="selection1">—</span></p>
+<p><strong>Selection 2:</strong> <span id="selection2">—</span></p>
+<p><strong>Text to be entered in the "Other" free-text box:</strong>
+<span id="finalText">—</span></p>
+</div>
+
+</div>
+
+<script>
+
+const q2Sections = [
+"Introduction","Methods/Materials and Methods","Results",
+"Discussion","Conclusion","References",
+"Figures/figure legends","Table/table legends",
+"Numbers in tables","Acknowledgments"
+];
+
+const q3Sections = [
+"Introduction","Methods/Materials and Methods",
+"Results","Discussion","Conclusion"
+];
+
+const structuralSections = [
+"Introduction","Methods/Materials and Methods",
+"Results","Discussion","Conclusion"
+];
+
+function createCheckboxGroup(containerId, sections, prefix){
+    const container = document.getElementById(containerId);
+    container.innerHTML="";
+    sections.forEach(section=>{
+        container.innerHTML += `<label><input type="checkbox" class="${prefix}" value="${section}"> ${section}</label><br>`;
+    });
+    container.innerHTML += `
+    <label><input type="checkbox" id="${prefix}_other"> Other</label>
+    <div id="${prefix}_other_container" class="hidden"></div>`;
+}
+
+createCheckboxGroup("q2Checkboxes", q2Sections, "q2cb");
+createCheckboxGroup("q3Checkboxes", q3Sections, "q3cb");
+
+function setupOther(prefix){
+    const otherCheckbox=document.getElementById(prefix+"_other");
+    const container=document.getElementById(prefix+"_other_container");
+
+    otherCheckbox.addEventListener("change", ()=>{
+        container.innerHTML="";
+        if(otherCheckbox.checked){
+            container.classList.remove("hidden");
+            addOtherInput(container);
+            const btn=document.createElement("button");
+            btn.textContent="Add another section";
+            btn.type="button";
+            btn.onclick=()=>addOtherInput(container);
+            container.appendChild(btn);
+        } else {
+            container.classList.add("hidden");
+        }
+    });
+}
+
+function addOtherInput(container){
+    const input=document.createElement("input");
+    input.type="text";
+    container.insertBefore(input, container.lastChild);
+}
+
+setupOther("q2cb");
+setupOther("q3cb");
+
+document.querySelectorAll('input[name="q1"]').forEach(el=>{
+    el.addEventListener("change", ()=>{
+        document.getElementById("q2Block").classList.toggle("hidden", el.value!=="Yes");
+        document.getElementById("q3Block").classList.toggle("hidden", el.value!=="Yes");
+    });
+});
+
+document.querySelectorAll('input[name="q2"]').forEach(el=>{
+    el.addEventListener("change", ()=>{
+        document.getElementById("q2Checkboxes").classList.toggle("hidden", el.value!=="Yes");
+    });
+});
+
+document.querySelectorAll('input[name="q3"]').forEach(el=>{
+    el.addEventListener("change", ()=>{
+        document.getElementById("q3Checkboxes").classList.toggle("hidden", el.value!=="Yes");
+    });
+});
+
+function getChecked(className){
+    return Array.from(document.querySelectorAll("."+className+":checked")).map(cb=>cb.value);
+}
+
+function getOther(prefix){
+    const checked=document.getElementById(prefix+"_other").checked;
+    if(!checked) return [];
+    const container=document.getElementById(prefix+"_other_container");
+    return Array.from(container.querySelectorAll("input[type=text]"))
+        .map(i=>i.value.trim())
+        .filter(Boolean);
+}
+
+function generateResults(){
+
+    const q1=document.querySelector('input[name="q1"]:checked')?.value;
+    const q2=document.querySelector('input[name="q2"]:checked')?.value;
+    const q3=document.querySelector('input[name="q3"]:checked')?.value;
+
+    const q2Checked=getChecked("q2cb");
+    const q3Checked=getChecked("q3cb");
+
+    const q2Other=getOther("q2cb");
+    const q3Other=getOther("q3cb");
+
+    // -------- VALIDATION A --------
+    if(q1==="Yes" && !q2 && !q3){
+        alert("Please complete Question 2 and/or Question 3 before generating.");
+        return;
+    }
+
+    // -------- VALIDATION B --------
+    if(q2==="Yes" && q2Checked.length===0 && q2Other.length===0){
+        alert("Please select at least one section for Question 2.");
+        return;
+    }
+
+    if(q3==="Yes" && q3Checked.length===0 && q3Other.length===0){
+        alert("Please select at least one section for Question 3.");
+        return;
+    }
+
+    let selection1="—";
+    let selection2="—";
+    let finalParts=[];
+
+    if(q1==="No"){
+        selection1="Full Manuscript Edit";
+    }
+    else if(q1==="Yes"){
+
+        if(q2==="Yes"){
+            const onlyMinor=
+                q2Checked.length>0 &&
+                q2Checked.every(s=>["References","Figures/figure legends","Table/table legends","Numbers in tables","Acknowledgments"].includes(s)) &&
+                q3!=="Yes";
+
+            if(onlyMinor){
+                selection1="Full Manuscript Edit";
+            }
+            else if(q2Checked.some(s=>structuralSections.includes(s)) || q2Other.length>0){
+                selection1="Partial Manuscript Edit";
+            }
+        }
+
+        if(q3==="Yes"){
+            selection1="Partial Manuscript Edit";
+        }
+    }
+
+    if(selection1==="Partial Manuscript Edit"){
+        if(q2==="Yes"){
+            const structuralSelected=q2Checked.filter(s=>structuralSections.includes(s));
+            selection2=structuralSelected.length>0 ? structuralSelected.join(", ") : "Not applicable";
+        } else {
+            selection2="Not applicable";
+        }
+    }
+
+    let separator=",";
+    if([...q2Other,...q3Other].some(t=>t.includes(","))){
+        separator=";";
+    }
+
+    if(q2==="Yes" && q2Other.length>0){
+        finalParts.push(q2Other.join(separator+" "));
+    }
+
+    if(q3==="Yes"){
+    	if(q3Checked.length>0){
+        	finalParts.push(
+            		q3Checked.map(t=>"Part of "+t).join(separator+" ")
+        	);
+    	}
+
+    	if(q3Other.length>0){
+        	finalParts.push(
+            		q3Other.map(t=>"Part of "+t).join(separator+" ")
+        	);
+    	}
+    }
+
+    document.getElementById("selection1").textContent=selection1;
+    document.getElementById("selection2").textContent=selection2;
+    document.getElementById("finalText").textContent=finalParts.length>0 ? finalParts.join(separator+" ") : "—";
+}
+
+function copyText(){
+    const text=document.getElementById("finalText").textContent;
+    if(!text || text==="—"){
+        alert("No text available to copy.");
+        return;
+    }
+    navigator.clipboard.writeText(text);
+    alert("Text copied to clipboard.");
+}
+
+function resetForm(){
+    document.querySelectorAll("input").forEach(el=>{
+        if(el.type==="radio" || el.type==="checkbox") el.checked=false;
+        if(el.type==="text") el.value="";
+    });
+    document.getElementById("selection1").textContent="—";
+    document.getElementById("selection2").textContent="—";
+    document.getElementById("finalText").textContent="—";
+    document.getElementById("q2Block").classList.add("hidden");
+    document.getElementById("q3Block").classList.add("hidden");
+    document.getElementById("q2Checkboxes").classList.add("hidden");
+    document.getElementById("q3Checkboxes").classList.add("hidden");
+}
+
+</script>
+</body>
+</html>
